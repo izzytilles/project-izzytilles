@@ -13,3 +13,4 @@
 *.tmp
 *.sw[a-p]
 .DS_Store
+config.json
