@@ -52,6 +52,11 @@ const menuItems = [
     { id: 3, name: 'Edit Database' },
 ];
 
+// redirect root to home page
+app.get('/', function (request, response) {
+    response.redirect('/home');
+});
+
 // serve the form -- access at http://localhost:3000/
 app.get('/home', function (request, response) {
     const homeMenu = menuItems.map(item => `<li><a href="/search/${item.id}">${item.name}</a></li>`).join('');
