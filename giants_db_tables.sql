@@ -16,40 +16,40 @@ DROP TABLE IF EXISTS player;
 DROP TABLE IF EXISTS season;
 
 CREATE TABLE season(
-    season_year INT,
+    season_year INTEGER,
     PRIMARY KEY(season_year)
 );
 
 CREATE TABLE player(
     player_name VARCHAR(50),
-    year_born INT,
-    year_drafted INT,
-    draft_pick_no INT,
-    rookie_year INT,
-    primary_position TINYTEXT,
+    year_born INTEGER,
+    year_drafted INTEGER,
+    draft_pick_no INTEGER,
+    rookie_year INTEGER,
+    primary_position VARCHAR(255),
     PRIMARY KEY(player_name)
 );
 
 CREATE TABLE team(
     team_name VARCHAR(50),
-    team_level TINYTEXT,
-    year_founded INT,
+    team_level VARCHAR(255),
+    year_founded INTEGER,
     PRIMARY KEY(team_name)
 );
 
 CREATE TABLE award(
     award_name VARCHAR(50),
-    year_created INT,
-    award_description TINYTEXT,
+    year_created INTEGER,
+    award_description VARCHAR(255),
     PRIMARY KEY(award_name)
 );
 
 CREATE TABLE team_winner(
     team_name VARCHAR(50),
     award_name VARCHAR(50),
-    season INT,
-    series_wins INT,
-    series_losses INT,
+    season INTEGER,
+    series_wins INTEGER,
+    series_losses INTEGER,
     PRIMARY KEY(team_name, award_name, season),
     FOREIGN KEY(team_name) REFERENCES team(team_name),
     FOREIGN KEY(award_name) REFERENCES award(award_name),
@@ -59,7 +59,7 @@ CREATE TABLE team_winner(
 CREATE TABLE player_winner(
     player_name VARCHAR(50),
     award_name VARCHAR(50),
-    season INT,
+    season INTEGER,
     PRIMARY KEY(player_name, award_name, season),
     FOREIGN KEY(player_name) REFERENCES player(player_name),
     FOREIGN KEY(award_name) REFERENCES award(award_name),
@@ -68,11 +68,11 @@ CREATE TABLE player_winner(
 
 CREATE TABLE team_year_info(
     team_name VARCHAR(50),
-    season INT,
-    wins INT,
-    losses INT,
-    place_in_nl_west INT,
-    budget INT,
+    season INTEGER,
+    wins INTEGER,
+    losses INTEGER,
+    place_in_nl_west INTEGER,
+    budget INTEGER,
     PRIMARY KEY(team_name, season),
     FOREIGN KEY(team_name) REFERENCES team(team_name),
     FOREIGN KEY(season) REFERENCES season(season_year)
@@ -80,20 +80,20 @@ CREATE TABLE team_year_info(
 
 CREATE TABLE hitter(
     player_name VARCHAR(50),
-    season INT,
-    team_name VARCHAR(50), 
-    games_played INT,
-    salary INT,
-    war FLOAT, 
-    hits INT,
-    singles INT,
-    doubles INT,
-    triples INT,
-    homeruns INT,
-    stolen_bases INT,
-    batting_avg FLOAT,
-    ops FLOAT,
-    slg FLOAT,
+    season INTEGER,
+    team_name VARCHAR(50),
+    games_played INTEGER,
+    salary INTEGER,
+    war REAL,
+    hits INTEGER,
+    singles INTEGER,
+    doubles INTEGER,
+    triples INTEGER,
+    homeruns INTEGER,
+    stolen_bases INTEGER,
+    batting_avg REAL,
+    ops REAL,
+    slg REAL,
     PRIMARY KEY(player_name, season, team_name),
     FOREIGN KEY(player_name) REFERENCES player(player_name),
     FOREIGN KEY(season) REFERENCES season(season_year),
@@ -102,18 +102,18 @@ CREATE TABLE hitter(
 
 CREATE TABLE pitcher(
     player_name VARCHAR(50),
-    season INT,
+    season INTEGER,
     team_name VARCHAR(50),
-    games_played INT,
-    salary INT,
-    war FLOAT, 
-    wins INT,
-    losses INT,
-    saves INT,
-    strikeouts INT,
-    innings FLOAT,
-    era FLOAT,
-    whip FLOAT,
+    games_played INTEGER,
+    salary INTEGER,
+    war REAL,
+    wins INTEGER,
+    losses INTEGER,
+    saves INTEGER,
+    strikeouts INTEGER,
+    innings REAL,
+    era REAL,
+    whip REAL,
     PRIMARY KEY(player_name, season, team_name),
     FOREIGN KEY(player_name) REFERENCES player(player_name),
     FOREIGN KEY(season) REFERENCES season(season_year),

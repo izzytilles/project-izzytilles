@@ -5,18 +5,32 @@
  * HOMEWORK: Final Project
  * DESCRIPTION: Website for navigating a database of the members of the San Francisco Giants and their accomplishments
  **********************************************************************/
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 const express = require('express');
 const path = require('path');
 
 // the credential info
 // Use environment variables in production, config.json in development
-const config = {
-    host: process.env.DB_HOST || require('./config.json').host,
-    user: process.env.DB_USER || require('./config.json').user,
-    password: process.env.DB_PASSWORD || require('./config.json').password,
-    database: process.env.DB_NAME || require('./config.json').database
-};
+let pool;
+if (process.env.DATABASE_URL) {
+    // Render provides DATABASE_URL
+    pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    });
+} else {
+    // Local development with config.json
+    const config = require('./config.json');
+    pool = new Pool({
+        host: config.host,
+        user: config.user,
+        password: config.password,
+        database: config.database,
+        port: config.port || 5432
+    });
+}
 
 // queries defined in other file 
 const lib = require('./lib');
@@ -180,14 +194,14 @@ app.get(('/search/pitcher'), function(request, response) {
     var pitcher = request.query.search;
     var sortStats = request.query.sort;
 
-    var cn = mysql.createConnection(config);
-    cn.connect();
     if (pitcher) {
-        cn.query(lib.choose_pitcher, [pitcher], function(err, rows, fields) {
+        pool.query(lib.choose_pitcher, [pitcher], function(err, result) {
             if (err) {
                 console.log('Error:', err);
+                return response.status(500).send('Database error');
             }
 
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<p>Pitcher stats: ' + pitcher + '</p>\n';
             str += '<table border="1">\n';
@@ -216,8 +230,6 @@ app.get(('/search/pitcher'), function(request, response) {
             str += '</table>\n';
             str += '</body>\n</html>\n';
             response.send(str);
-
-
         });
 
     }
@@ -254,15 +266,18 @@ app.get(('/search/pitcher'), function(request, response) {
         else if (sortStats == 'whip') {
             allTimeQuery += lib.all_time_whip;
         }
-        // if no recognized sort_stat, returned table will sort by ERA automatically 
+        // if no recognized sort_stat, returned table will sort by ERA automatically
         else {
             allTimeQuery += ' ORDER BY era';
         };
 
-        cn.query(allTimeQuery, function(err, rows, fields) {
+        pool.query(allTimeQuery, function(err, result) {
             if (err) {
                 console.log('Error:', err);
+                return response.status(500).send('Database error');
             }
+
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<p>All-time leaders: </p>\n';
             str += '<table border="1">\n';
@@ -271,8 +286,8 @@ app.get(('/search/pitcher'), function(request, response) {
             str += '<th>Strikeouts</th><th>Innings</th><th>ERA</th>';
             str += '<th>WHIP</th></tr>\n';
 
-            //iterate thru result set 
-            for (const r of rows) { 
+            //iterate thru result set
+            for (const r of rows) {
                 str += '<tr>';
                 str += '<td>' + r['player_name'] + '</td>';
                 str += '<td>' + r['games_played'] + '</td>';
@@ -291,11 +306,8 @@ app.get(('/search/pitcher'), function(request, response) {
             str += '</table>\n';
 
             response.send(str);
-
-
         });
     }
-    cn.end(); 
 
 });
 
@@ -306,14 +318,14 @@ app.get(('/search/hitter'), function(request, response) {
     var sortStats = request.query.sort;
     var position = request.query.position;
 
-    var cn = mysql.createConnection(config);
-    cn.connect();
     if (hitter) {
-        cn.query(lib.choose_hitter, [hitter], function(err, rows, fields) {
+        pool.query(lib.choose_hitter, [hitter], function(err, result) {
             if (err) {
                 console.log('Error:', err);
+                return response.status(500).send('Database error');
             }
 
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<p>Hitter stats: ' + hitter + '</p>\n';
             str += '<table border="1">\n';
@@ -344,8 +356,6 @@ app.get(('/search/hitter'), function(request, response) {
             str += '</table>\n';
             str += '</body>\n</html>\n';
             response.send(str);
-
-
         });
     }
     else {
@@ -387,19 +397,22 @@ app.get(('/search/hitter'), function(request, response) {
         else if (sortStats == 'slg') {
             allTimeQuery += lib.all_time_slg;
         }
-        // if no recognized sort_stat, returned table will sort by batting avg automatically 
+        // if no recognized sort_stat, returned table will sort by batting avg automatically
         else {
-            allTimeQuery += ' ORDER BY batting_average';
+            allTimeQuery += ' ORDER BY batting_avg';
         };
 
-        // if no specific position is inputted, then include every position in results 
+        // if no specific position is inputted, then include every position in results
         if (position == "") {
             allTimeQuery = allTimeQuery.replace("WHERE p.primary_position = ?", "WHERE 1=1");
         }
-        cn.query(allTimeQuery, [position], function(err, rows, fields) {
+        pool.query(allTimeQuery, [position], function(err, result) {
             if (err) {
                 console.log('Error:', err);
+                return response.status(500).send('Database error');
             }
+
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<p>All-time leaders: ' + position + '</p>\n';
             str += '<table border="1">\n';
@@ -408,8 +421,8 @@ app.get(('/search/hitter'), function(request, response) {
             str += '<th>Triples</th><th>Home Runs</th><th>Stolen Bases</th>';
             str += '<th>Batting Avg</th><th>OPS</th><th>SLG</th></tr>\n';
 
-            //iterate thru result set 
-            for (const r of rows) { 
+            //iterate thru result set
+            for (const r of rows) {
                 str += '<tr>';
                 str += '<td>' + r['player_name'] + '</td>';
                 str += '<td>' + r['games_played'] + '</td>';
@@ -430,11 +443,8 @@ app.get(('/search/hitter'), function(request, response) {
             str += '</table>\n';
 
             response.send(str);
-
-
         });
     }
-    cn.end(); 
 });
 
 // second option: choose to see awards and winners 
@@ -534,16 +544,16 @@ app.get(('/search/playeraward'), function(request, response) {
     var player = request.query.player;
     var award = request.query.sort;
 
-    var cn = mysql.createConnection(config);
     var query = lib.choose_player_winner;
-    cn.connect();
     if (player) {
         query += lib.choose_winner;
-        cn.query(query, [player], function(err, rows, fields) {
+        pool.query(query, [player], function(err, result) {
             if (err) {
                 console.log('Error:', err);
+                return response.status(500).send('Database error');
             }
 
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<p>Awards earned by ' + player + ':</p>\n';
             str += '<table border="1">\n';
@@ -560,18 +570,19 @@ app.get(('/search/playeraward'), function(request, response) {
             str += '</table>\n';
             str += '</body>\n</html>\n';
             response.send(str);
-
         });
 
     }
     // if trying to sort for resuts by award
     else {
         query += lib.choose_award;
-        cn.query(query, [award], function(err, rows, fields) {
+        pool.query(query, [award], function(err, result) {
             if (err) {
                 console.log('Error:', err);
+                return response.status(500).send('Database error');
             }
 
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<p>Giants who have won the ' + award + ':</p>\n';
             str += '<table border="1">\n';
@@ -588,10 +599,8 @@ app.get(('/search/playeraward'), function(request, response) {
             str += '</table>\n';
             str += '</body>\n</html>\n';
             response.send(str);
-
         });
     }
-    cn.end(); 
 
 });
 
@@ -599,14 +608,14 @@ app.get(('/search/playeraward'), function(request, response) {
 app.get(('/search/teamaward'), function(request, response) {
     var award = request.query.sort;
 
-    var cn = mysql.createConnection(config);
     var query = lib.choose_team_winner;
-    cn.connect();
-    cn.query(query, [award], function(err, rows, fields) {
+    pool.query(query, [award], function(err, result) {
         if (err) {
             console.log('Error:', err);
+            return response.status(500).send('Database error');
         }
 
+        var rows = result.rows;
         var str = '<html>\n<body>\n';
         str += '<p>' + award + ' earned by the Giants</p>\n';
         str += '<table border="1">\n';
@@ -642,7 +651,6 @@ app.get(('/search/teamaward'), function(request, response) {
         str += '</body>\n</html>\n';
         response.send(str);
     });
-    cn.end(); 
 
 });
 
@@ -674,19 +682,17 @@ app.get('/edit', function(request, response){
     const action = request.query.criteria;
 
     if (action == 'edit') {
-        var cn = mysql.createConnection(config);
-        cn.connect();
-      
         const q = 'SELECT player_name, season FROM hitter ORDER BY season DESC';
-        cn.query(q, function (err, rows, fields) {
+        pool.query(q, function (err, result) {
             if (err) {
                 console.log('Error:', err);
-                cn.end();
-          }
-          //build up the html form 
+                return response.status(500).send('Database error');
+            }
+            //build up the html form
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<b>Update season information: </b>\n<br/>';
-            str += '<form action="/updated_player_info.html" method="POST">\n'; 
+            str += '<form action="/updated_player_info.html" method="POST">\n';
             str += '<table>\n<tr>\n<td>Player:</td><td>\n';
             str += '<select name="player_name">\n';
             for (const r of rows) { // button shows player and season, returns player-season
@@ -708,47 +714,43 @@ app.get('/edit', function(request, response){
             str += '<td><input type ="text" name="slg"></td>\n</tr>';
             str += '<tr><td><input type="submit" value="Update"/></td></tr>';
             str += '</table>\n</form>\n</body>\n</html>';
-    
+
             response.send(str);
-            cn.end();
-            
-            });
+        });
     }
     else if (action == 'delete_season') {
-        var cn = mysql.createConnection(config);
-        cn.connect();
         const q = 'SELECT player_name, season FROM hitter ORDER BY season DESC';
-        cn.query(q, function (err, rows, fields) {
+        pool.query(q, function (err, result) {
             if (err) {
                 console.log('Error:', err);
-                cn.end();
-        }
-        //build up the html form 
+                return response.status(500).send('Database error');
+            }
+            //build up the html form
+            var rows = result.rows;
             var str = '<html>\n<body>\n';
             str += '<b>Delete a player\'s season information: </b>\n<br/>';
-            str += '<form action="/delete_player_info.html" method="POST">\n'; 
+            str += '<form action="/delete_player_info.html" method="POST">\n';
             str += '<table>\n<tr>\n<td>Player:</td><td>\n';
             str += '<select name="player_name">\n';
             for (const r of rows) {
                 str += '<option value="' + r['player_name'] + '-' + r['season'] + '">' + r['player_name'] + ' - ' + r['season'] + '</option>\n';
             }
             str += '</select>\n</td>\n</tr>\n<tr>';
-            
+
             str += '</select>\n</td>\n</tr>\n<tr>';
             str += '<tr><td><input type="submit" value="Update"/></td></tr>';
             str += '</table>\n</form>\n</body>\n</html>';
 
-            response.send(str); 
-            cn.end();
+            response.send(str);
         });
 
     }
     else if (action == 'add_season') {
 
-        //build up the html form 
+        //build up the html form
             var str = '<html>\n<body>\n';
             str += '<b>Add a hitter\'s stats for a season: </b>\n<br/>';
-            str += '<form action="/add_player_season.html" method="POST">\n'; 
+            str += '<form action="/add_player_season.html" method="POST">\n';
             str += '</select>\n</td>\n</tr>\n';
             str += '<td>Player Name:</td>';
             str += '<td><input type ="text" name="player_name"></td>\n</tr>\n<tr>';
@@ -782,64 +784,60 @@ app.get('/edit', function(request, response){
             str += '<td><input type ="text" name="slg"></td>\n</tr>';
             str += '<tr><td><input type="submit" value="Update"/></td></tr>';
             str += '</table>\n</form>\n</body>\n</html>';
-    
+
             response.send(str);
         }
 
 });
 
 app.post('/updated_player_info.html', function(request, response) {
-    var games = request.body.games_played; 
+    var games = request.body.games_played;
     var salary = request.body.salary;
     var war = request.body.war;
     var batting_avg = request.body.batting_avg;
     var ops = request.body.ops;
     var slg = request.body.slg;
     var selectedValue = request.body.player_name; // 'player_name' contains player name and season
-    var values = selectedValue.split('-'); 
+    var values = selectedValue.split('-');
     var player = values[0]; // player name
     var season = values[1]; // season
 
     var updateList = [games, salary, war, batting_avg, ops, slg, player, season];
 
-    var cn = mysql.createConnection(config);
-    cn.connect();
     //update - with select stats
-    const q1 = 'UPDATE hitter SET games_played = ?, salary = ?, war = ?, batting_avg = ?, ops =?, slg = ? WHERE player_name = ? AND season = ?';
+    const q1 = 'UPDATE hitter SET games_played = $1, salary = $2, war = $3, batting_avg = $4, ops = $5, slg = $6 WHERE player_name = $7 AND season = $8';
 
-    
-    //update the list 
-    cn.query(q1, updateList, function(err, rows, fields) {
+
+    //update the list
+    pool.query(q1, updateList, function(err, result) {
         if (err) {
             console.log('Error: ', err);
+            return response.status(500).send('Database error');
         } else {
             response.send('Player information updated successfully.');
         }
-        cn.end();
     });
 });
 
 app.post('/delete_player_info.html', function(request, response) {
     var selectedValue = request.body.player_name; // same as above function
-    var values = selectedValue.split('-'); 
-    var player = values[0]; 
-    var season = values[1]; 
+    var values = selectedValue.split('-');
+    var player = values[0];
+    var season = values[1];
 
     console.log('Player:', player);
     console.log('Season:', season);
 
     var deleteList = [player, season];
 
-    var cn = mysql.createConnection(config);
-    cn.connect();
-    const q1 = 'DELETE FROM hitter WHERE player_name = ? AND season = ?';
-    
-    //update the list 
-    cn.query(q1, deleteList, function(err, rows, fields) {
+    const q1 = 'DELETE FROM hitter WHERE player_name = $1 AND season = $2';
+
+    //delete the record
+    pool.query(q1, deleteList, function(err, result) {
         if (err) {
             console.log('Error: ', err);
-        } 
-        cn.end();
+            return response.status(500).send('Database error');
+        }
         response.redirect('/home');
     });
 });
@@ -848,50 +846,45 @@ app.post('/delete_player_info.html', function(request, response) {
 app.post('/add_player_season.html', function(request, response) {
     var player = request.body.player_name;
     var season = request.body.season;
-    var team = request.body.team_name;  
-    var games = request.body.games_played; 
+    var team = request.body.team_name;
+    var games = request.body.games_played;
     var salary = request.body.salary;
     var war = request.body.war;
-    var hits = request.body.hits; 
-    var singles = request.body.singles; 
-    var doubles = request.body.doubles; 
+    var hits = request.body.hits;
+    var singles = request.body.singles;
+    var doubles = request.body.doubles;
     var triples = request.body.triples;
     var homeruns = request.body.home_runs;
-    var stolenBases = request.body.stolen_bases;   
+    var stolenBases = request.body.stolen_bases;
     var battingAvg = request.body.batting_avg;
     var ops = request.body.ops;
     var slg = request.body.slg;
 
     var seasonList = [player, season, team, games, salary, war, hits, singles, doubles, triples, homeruns, stolenBases, battingAvg, ops, slg ];
 
-    var cn = mysql.createConnection(config);
-    cn.connect();
-    // make sure player already exists - because foreign key constraints 
-    const playerCheckQuery = 'SELECT COUNT(*) as player_count FROM player WHERE player_name = ?';
-    cn.query(playerCheckQuery, [player], function (err, playerRows, playerFields) {
+    // make sure player already exists - because foreign key constraints
+    const playerCheckQuery = 'SELECT COUNT(*) as player_count FROM player WHERE player_name = $1';
+    pool.query(playerCheckQuery, [player], function (err, playerResult) {
         if (err) {
             console.log('Error:', err);
-            cn.end();
-            response.redirect('/search/3');
+            return response.redirect('/search/3');
         }
 
-        const playerCount = playerRows[0].player_count;
+        const playerCount = playerResult.rows[0].player_count;
 
         // if player doesn't exist, warn user and exit back to edit page
         if (playerCount == 0) {
-            cn.end();
-            response.redirect('/search/3');
+            return response.redirect('/search/3');
         }
 
         // if player exists, add them
         const q = lib.insert_season_hitter;
-        cn.query(q, seasonList, function (err, rows, fields) {
+        pool.query(q, seasonList, function (err, result) {
             if (err) {
                 console.log('Error:', err);
-                cn.end();
-        }
-        cn.end();
-        response.redirect('/home');
+                return response.status(500).send('Database error');
+            }
+            response.redirect('/home');
         });
     });
 
